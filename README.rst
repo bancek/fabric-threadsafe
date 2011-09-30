@@ -16,10 +16,10 @@ Usage
 
 Import fabric_threadsafe.patch before any other Fabric imports.
 
-.. code-block:: py
-
+::
+    
     import fabric_threadsafe.patch
-    ...
+    
     from fabric.api import env, run, cd
 
 Testing
