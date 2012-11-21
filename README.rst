@@ -1,6 +1,8 @@
 Fabric thread-safe
 ==================
 
+.. image:: https://api.travis-ci.org/bancek/fabric-threadsafe.png
+
 This module will monkeypatch fabric to use DictProxy for fabric.api.env to use
 thread local storage.
 
