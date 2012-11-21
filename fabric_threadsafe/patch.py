@@ -1,3 +1,4 @@
+import os
 import threading
 from functools import wraps
 from UserDict import UserDict
@@ -33,9 +34,29 @@ class _AttributeDictProxy(DictProxy):
             if value:
                 return value
 
+def synchronize(lock, func):
+    @wraps(func)
+    def decorated(*args, **kw):
+        lock.acquire()
+        try:
+            return func(*args, **kw)
+        finally:
+            lock.release()
+    return decorated
+
+def fix_terminal():
+    '''Multi-threaded fabric breaks terminal's echo'''
+    os.system("stty -raw echo")
+
 # monkeypatch
 def patch_fabric():
+    if getattr(patch_fabric, 'patched', False):
+        return False
+
+    patch_fabric.patched = True
+
     import sys
+    import atexit
     from fabric import state as fstate
     from fabric.thread_handling import ThreadHandler
 
@@ -47,6 +68,11 @@ def patch_fabric():
         return state.env
 
     fstate.env = _AttributeDictProxy(get_state_env)
+
+    default_channel_lock = threading.Lock()
+
+    fstate.default_channel = synchronize(default_channel_lock,
+                                         fstate.default_channel)
 
     def transfer_state(func):
         def inner(old_state):
@@ -70,44 +96,10 @@ def patch_fabric():
     
     for m, v in sys.modules.items():
         if (v and (m.startswith('fabric.') or m == 'fabric')
-                and m != 'fabric.state'):
+                and m not in ('fabric.state', 'fabric.utils')):
             reload(v)
 
-patch_fabric()
+    atexit.register(fix_terminal)
+
+    return True
 # /monkeypatch
-
-def test_patch():
-    from fabric.thread_handling import ThreadHandler
-    from fabric.api import env
-
-    env.host_string = 'myhost'
-    
-    # test dict proxy
-    assert env['host_string'] == 'myhost'
-    
-    # test attribute dict proxy
-    assert env.host_string == 'myhost'
-
-    # test state transfer
-    def test_state_transfer(x, y):
-        assert x == 1
-        assert y == 2
-        assert env.host_string == 'myhost'
-    
-    # test fresh state
-    def test_default(x, y):
-        assert x == 1
-        assert y == 2
-        assert env.host_string == None
-    
-    th = ThreadHandler('footest', test_state_transfer, [1], {'y': 2})
-    th.thread.join()
-    
-    t = threading.Thread(None, test_default, args=[1], kwargs={'y': 2})
-    t.start()
-    t.join()
-    
-    print 'OK'
-
-if __name__ == '__main__':
-    test_patch()
