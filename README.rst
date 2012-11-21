@@ -14,15 +14,21 @@ Installation
 Usage
 =====
 
-Import fabric_threadsafe.patch before any other Fabric imports.
+Import `patch` function from `fabric_threadsafe` and call it before any other Fabric imports.
 
 ::
-    
-    import fabric_threadsafe.patch
-    
+
+    from fabric_threadsafe import patch
+    patch()
+
     from fabric.api import env, run, cd
 
 Testing
 =======
 
 Use nose framework for testing.
+
+::
+
+    pip install nose
+    nosetests
